@@ -6,6 +6,8 @@ from scipy.optimize import curve_fit
 import matplotlib.pyplot as plt
 import re
 from collections.abc import Iterable
+#from iminuit import Minuit
+#from iminuit.cost import LeastSquares
 
 parser = argparse.ArgumentParser(description='fitting code')
 parser.add_argument('--filename', help='name of .C file')
@@ -34,8 +36,9 @@ def double_gauss(x, *params):
     mean = params[0]
     sigma1 = params[1]
     sigma2 = params[2]
-    #phi = params[3]
     alpha = params[3]
+    #phi = params[3]
+    
     #A1 = params[3]
     #A2 = params[4]
 
@@ -154,17 +157,13 @@ def CBEGauss(x, *params):
     
     return rval_results
 
-#gamma adjustment
-def adjust_gamma(x, mean, target_u_max):
-        return target_u_max / np.max(np.abs(x - mean))
-
 # Fit gaussian with background
 def fit_gaussian_with_background(file_name):
 
     #Setup
 
     variable = file_name.strip('.C')
-    plot_dir = f'Preselection_Loose/Final_Plots/{variable}/fit_{args.run_number}/'
+    plot_dir = f'Preselection_Loose/Final_Plots_v2/{variable}/fit_{args.run_number}/'
     makeDir(plot_dir)
     figname = f"MC_{variable}_fit_{args.run_number}.png"
 
@@ -234,8 +233,11 @@ def fit_gaussian_with_background(file_name):
 
     print("Bins Received")
     
-    sig_min = 70
-    sig_max = 100
+
+    #bounds for fitting
+    sig_min = 85
+    sig_max = 95
+    
     bkg_min = 50
     bkg_max = 60
 
@@ -250,19 +252,30 @@ def fit_gaussian_with_background(file_name):
     bin_centers_sig = (bin_edges[:-1][mask_sig] + bin_edges[1:][mask_sig]) / 2
     bin_contents_bkg = bin_contents[mask_bkg]
     bin_centers_bkg = (bin_edges[:-1][mask_bkg] + bin_edges[1:][mask_bkg]) / 2
+
+    bin_errors_sig = bin_errors[mask_sig]
+    bin_errors_bkg = bin_errors[mask_bkg]
     
     bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
 
     bin_centers_sig = np.array(bin_centers_sig)
     bin_centers_bkg = np.array(bin_centers_bkg)
     bin_centers = np.array(bin_centers)
+    
+    bin_errors_sig = np.array(bin_errors_sig)
+    bin_errors_bkg = np.array(bin_errors_bkg)
 
     ###############
 
     #Finding Parameters
     
-    sigma1 = 11.05
-    sigma2 = sigma1
+    sigma = 0
+
+    for i in range(len(bin_centers)):
+        sigma += bin_centers[i]*bin_contents[i] / entry_num
+
+    sigma1 = sigma
+    sigma2 = sigma
 
     #Background
     alpha = 55
@@ -284,14 +297,6 @@ def fit_gaussian_with_background(file_name):
 
     popt_bkg, pcov_bkg = curve_fit(bkg_func, bin_centers_bkg, bin_contents_bkg, p0=p0_bkg, maxfev=100000000)
     #popt_bkg, pcov_bkg = curve_fit(gaussian, bin_centers_bkg, bin_contents_bkg, p0=p0_bkg, maxfev=10000)
-
-    # Adjust gamma for faster decay while keeping u within a reasonable range
-    #target_u_max = 0.045  # Target maximum u value to keep within range
-    #adjusted_gamma = adjust_gamma(bin_centers_bkg, mean_bkg, target_u_max)
-    #p0_bkg_adjusted = [alpha, beta, adjusted_gamma, mean_bkg]
-
-    # Perform curve fitting with the adjusted gamma
-    #popt_bkg_adjusted, pcov_bkg_adjusted = curve_fit(bkg_func, bin_centers_bkg, bin_contents_bkg, p0=p0_bkg_adjusted, maxfev=10000)
 
     print("Background Parameters Set")
 
@@ -318,17 +323,13 @@ def fit_gaussian_with_background(file_name):
 
     #print(diff)
     '''
-    amp1 = amp #+ diff
-    amp2 = amp
-
     alpha_sig = 2
     n = 2
     tailLeft = 2
     '''
 
-    #phi = np.pi / 4
+    phi = np.pi / 4
 
-    #p0_sig = [mean, sigma1, sigma2, amp1, amp2]
     p0_sig = [mean, sigma1, sigma2, amp]
     #p0_sig = [mean, sigma1, sigma2, phi]
     #p0_sig = [mean, sigma1, amp]
@@ -396,28 +397,62 @@ def fit_gaussian_with_background(file_name):
     #intg_combo = sum(combined_fit)
     combo = intg_sig + intg_bkg
 
-    #print('Signal:', intg_sig)
-    #print('Background:', intg_bkg)
+    print('Signal:', intg_sig)
+    print('Background:', intg_bkg)
     #print(combo)
 
     ratio = entry_num/combo
-    #print(ratio)
+    print(ratio)
 
     N_sig = intg_sig * ratio
     N_bkg = intg_bkg * ratio
 
+    print(N_sig)
+
     sig_err = np.sqrt(N_sig)
     bkg_err = np.sqrt(N_bkg)
+
+
+    #least_squares_bkg = LeastSquares(bin_centers_bkg, bin_contents_bkg, bin_errors_bkg, bkg_func)
+    #m_bkg = Minuit(least_squares_bkg, a=popt_bkg)
+    #m_bkg.migrad() # finds minimum of least_squares function
+    #m_bkg.hesse() # computes errors
+
+    #least_squares_sig = LeastSquares(bin_centers_sig, bin_contents_sig, bin_errors_sig, double_gauss)
+    #m_sig = Minuit(least_squares_sig, a=popt_sig)
+    #m_sig.migrad() # finds minimum of least_squares function
+    #m_sig.hesse() # computes errors
+
+    if len(popt_bkg) == 3:
+        err_bkg = [pcov_bkg[0][0], pcov_bkg[1][1], pcov_bkg[2][2]]
+
+    if len(popt_bkg) == 4:
+        err_bkg = [pcov_bkg[0][0], pcov_bkg[1][1], pcov_bkg[2][2], pcov_bkg[3][3]]
+
+    if len(popt_sig) == 3:
+        err_sig = [pcov_sig[0][0], pcov_sig[1][1], pcov_sig[2][2]]
+
+    if len(popt_sig) == 4:
+        err_sig = [pcov_sig[0][0], pcov_sig[1][1], pcov_sig[2][2], pcov_sig[3][3]]
+
+
+    err_bkg = np.sqrt(err_bkg)
+    err_sig = np.sqrt(err_sig)
     
-    plt.annotate(f'N_sig{passfail} = {int(N_sig)} $\pm$ {int(sig_err)}', xy=(x_max - 30, 3*sig_max_val/4), xytext=(10,10), textcoords='offset points')
-    plt.annotate(f'N_bkg{passfail} = {int(N_bkg)} $\pm$ {int(bkg_err)}', xy=(x_max - 30, 5*sig_max_val/8), xytext=(10,10), textcoords='offset points')
+    display1 = f'N_sig{passfail} = {int(N_sig)} $\pm$ {int(sig_err)}'
+    display2 = f'N_bkg{passfail} = {int(N_bkg)} $\pm$ {int(bkg_err)}'
+    
+    plt.plot([], [], " ", label=display1)
+    plt.plot([], [], " ", label=display2)
+    #plt.annotate(f'N_sig{passfail} = {int(N_sig)} $\pm$ {int(sig_err)}', xy=(x_max - 30, 3*sig_max_val/4), xytext=(10,10), textcoords='offset points')
+    #plt.annotate(f'N_bkg{passfail} = {int(N_bkg)} $\pm$ {int(bkg_err)}', xy=(x_max - 30, 5*sig_max_val/8), xytext=(10,10), textcoords='offset points')
 
     plt.xlim(x_min - 5, x_max + 5)
     #plt.ylim(0, sig_max_val + 500)
     plt.xlabel('$m_{ee}$')
     plt.ylabel('# of Events')
     plt.title(variable)
-    plt.legend()
+    plt.legend(loc='upper left', fontsize=15)
     plt.savefig(os.path.join(plot_dir, figname))
 
     print('=======> Plot saved as <=======')
@@ -426,37 +461,48 @@ def fit_gaussian_with_background(file_name):
 
     print('Making Data File ...')
 
-    #print(len(popt_bkg))
-
     with open(f'{plot_dir}/results.txt', 'w') as w:
+
         print('Background Parameters', file=w)
+        print(f'({bkg_min}, {bkg_max}) U ({bkg_min2}, {bkg_max2})', file=w)
+        
         if len(popt_bkg) == 3:
-            print('Mean:', popt_sig[0], file=w)
-            print('Sigma:', popt_bkg[1], file=w)
-            print('Amplitude:', popt_bkg[2], file=w)
+            print(f'Mean: {popt_bkg[0]} +/- {err_bkg[0]}', file=w)
+            print(f'Sigma: {popt_bkg[1]} +/- {err_bkg[1]}', file=w)
+            print(f'Amplitude: {popt_bkg[2]} +/- {err_bkg[2]}', file=w)
+            print('Covariance:', file=w)
+            print(pcov_bkg, file=w)
+
         if len(popt_bkg) == 4:
-            print('Peak:', popt_bkg[0], file=w)
-            print('Alpha:', popt_bkg[1], file=w)
-            print('Beta:', popt_bkg[2], file=w)
-            print('Gamma:', popt_bkg[3], file=w)
+            print(f'Peak: {popt_bkg[0]} +/- {err_bkg[0]}', file=w)
+            print(f'Alpha: {popt_bkg[1]} +/- {err_bkg[1]}', file=w)
+            print(f'Beta: {popt_bkg[2]} +/- {err_bkg[2]}', file=w)
+            print(f'Gamma: {popt_bkg[3]} +/- {err_bkg[3]}', file=w)
+            print('Covariance:', file=w)
+            print(pcov_bkg, file=w)
+        
         print(file=w)
+        
         print('Signal Parameters', file=w)
+        print(f'({sig_min}, {sig_max})', file=w)
+        
         if len(popt_sig) == 3:
-            print('Mean:', popt_sig[0], file=w)
-            print('Sigma:', popt_sig[1], file=w)
-            print('Amplitude:', popt_sig[2], file=w)
+            print(f'Mean: {popt_sig[0]} +/- {err_sig[0]}', file=w)
+            print(f'Sigma: {popt_sig[1]} +/- {err_sig[1]}', file=w)
+            print(f'Amplitude: {popt_sig[2]} +/- {err_sig[2]}', file=w)
+            print('Covariance:', file=w)
+            print(pcov_sig, file=w)
+
         if len(popt_sig) == 4:
-            print('Mean:', popt_sig[0], file=w)
-            print('Sigma 1:', popt_sig[1], file=w)
-            print('Sigma 2:', popt_sig[2], file=w)
-            print('Alpha:', popt_sig[3], file=w)
-        if len(popt_sig) == 5:
-            print('Mean:', popt_sig[0], file=w)
-            print('Sigma 1:', popt_sig[1], file=w)
-            print('Sigma 2:', popt_sig[2], file=w)
-            print('Amplitude 1:', popt_sig[3], file=w)
-            print('Amplitude 2:', popt_sig[4], file=w)
+            print(f'Mean: {popt_sig[0]} +/- {err_sig[0]}', file=w)
+            print(f'Sigma 1: {popt_sig[1]} +/- {err_sig[1]}', file=w)
+            print(f'Sigma 2: {popt_sig[2]} +/- {err_sig[2]}', file=w)
+            print(f'Alpha: {popt_sig[3]} +/- {err_sig[3]}', file=w)
+            print('Covariance:', file=w)
+            print(pcov_sig, file=w)
+        
         print(file=w)
+        
         print(f'N_sig: {N_sig} +/- {sig_err}', file=w)
         print(f'N_bkg: {N_bkg} +/- {bkg_err}', file=w)
         print(f'Total: {N_sig + N_bkg}', file=w)

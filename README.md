@@ -1,21 +1,17 @@
 # tnp_fitting
 TnP fitting for egamma analysis
 
-This is my fitting code I used for measuring electron efficiency using
-Tag & Probe.
+This is my fitting code I used for measuring electron efficiency using Tag & Probe.
 
-The file `run2.sh` can be used to run `MChistfit.py`.
+The main fitting file is `MChistfit.py`, it fits the histograms given by a .C file.
 
-The .sh file itself contains the instructions on how to run it, you
-will want to put the name the .C file you're running on.
-
-These particular .C files were hand pulled from the files created
-using `tnpEGM_fitter.py` and `run.sh`, which are located in the `tnpEGM_fitter` folder.
+These particular .C files were hand pulled from the files created running `tnpEGM_fitter.py` over the .root file `DY_1j_madgraph_PromptReco2022FG_tnpEleID.pu.puTree.root`. You can find both of these in the `tnpEGM_fitting` directory.
 
 I may need to edit the files for that a bit to get them to work right again.
 
-In order for the these files to run on CMS el9 you need to run them in
-an sl7 container.
+## Setup
+
+In order for the these files to run on CMS el9 you need to run them in an sl7 container.
 
 This the command to set up the sl7 container:
 
@@ -29,20 +25,11 @@ This will make it so the command `use_sl7` puts you in the container.
 
 After which you need to run `cmsenv` set up the root environment.
 
-Here is an example of how to run the code:
 
-```
-./run2.sh 20-30_01mcF.C 01
-```
+## Creating .C Files
 
-This has the code read the given file and gives it a number for naming
-the outputs.
+If you need to create the .C files you want to fit on, you can do so by running `tnpEGMfitter.py`. The instructions on how to do so are in the comments of `run.sh`.
 
-If you want to edit the directory it puts the output in, that is
-located in line 167 of the `MChistfit.py` file.
-
-In order to run `tnpEGMfitter.py`, you can follow the instructions in
-the comments of `run.sh`. 
 
 Here are two examples, one running on Data and one on Monte Carlo:
 
@@ -54,25 +41,45 @@ passingPreselectionAndLoose 01
 passingPreselectionAndLoose 01mc -m
 ```
  
- The bins you want to use can be editing around line 199 in
- `settings_ele_PromptReco2023CD.py`. Additionally the output directory
- can be edited on line 46.
+The bins you want to use can be editing around line 199 in `settings_ele_PromptReco2023CD.py`. Additionally the output directory can be edited on line 46.
 
-This will output a fitting plot (alongside two extras that are
-useless). It'll be the one with "bin00" at the beginning.
+Currently, this will output a fitting plot (alongside two extras that are useless). It'll be the one with "bin00" at the beginning.
 
-It will also output some .root files. The one you want to look at in
-the TBrowser is
-`data_Run2023C_passingPreselectionAndLoose.root`. Enter the root
-environment and then do the following.
+It is supposed to give you a file called `datareadout.txt`, but that is currently not working and I am trying to fix it.
+
+It will also output some .root files. The one you want to look at in the TBrowser is `data_Run2023C_passingPreselectionAndLoose.root`. Enter the root environment and then do the following.
 
 ```
 TBrowser b("data_Run2023C_passingPreselectionAndLoose.root")
 
 ```
 
-Inside there will be some root canvases. You will want to download
-bin00's Pass and Fail canvases as .C files. It might also be good to
-download them as .png files as well for reference.
+Inside there will be some root canvases. You will want to download bin00's Pass and Fail canvases as .C files. It might also be good to download them as .png files as well for reference.
 
 These .C files are the ones the code is run over.
+
+
+## Running the Fitter
+
+
+The file `run2.sh` can be used to run `MChistfit.py`.
+
+The .sh file itself contains the instructions on how to run it, you will want to put the name the .C file you're running on.
+
+Here is an example of how to run the code:
+
+```
+./run2.sh 20-30_01mcF.C 01
+```
+
+This has the code read the given file and gives it a number for naming the outputs.
+
+As the code stands, the directory created by this run would be `/Preselection_Loose/Final_Plots_v2/20-30_01mcF/fit_01`.
+
+It will output the plot and text document called `results.txt` which contains fitting data.
+
+If you want to edit the directory it puts the output in, that is located in line 167 of the `MChistfit.py` file.
+
+For fine tuning the fit, you may need to edit the bounds on which you fit each function. You can do this on line 237.
+
+
