@@ -6,6 +6,7 @@ from scipy.optimize import curve_fit
 import matplotlib.pyplot as plt
 import re
 from collections.abc import Iterable
+from scipy.stats import chisquare
 #from iminuit import Minuit
 #from iminuit.cost import LeastSquares
 
@@ -157,6 +158,14 @@ def CBEGauss(x, *params):
     
     return rval_results
 
+#background exponential
+def bkg_exp(x, *params):
+    a = params[0]
+    b = params[1]
+    c = params[2]
+
+    return a*np.exp(-b*x) + c
+
 # Fit gaussian with background
 def fit_gaussian_with_background(file_name):
 
@@ -166,6 +175,15 @@ def fit_gaussian_with_background(file_name):
     plot_dir = f'Preselection_Loose/Final_Plots_v2/{variable}/fit_{args.run_number}/'
     makeDir(plot_dir)
     figname = f"MC_{variable}_fit_{args.run_number}.png"
+
+    #Double (2) or Single Gaussian (1)
+    gauss_type = 1
+    
+    #Background Function (1) or Exponential (0)
+    bkg_type = 1
+
+    #Manual Override
+    override = 1
 
     bin_contents = []
     bin_edges = []
@@ -233,19 +251,19 @@ def fit_gaussian_with_background(file_name):
 
     print("Bins Received")
     
+    print("Setting Parameters ...")
 
     #bounds for fitting
-    sig_min = 85
+    sig_min = 80
     sig_max = 95
     
     bkg_min = 50
-    bkg_max = 60
+    bkg_max = 78
 
     bkg_min2 = 115
     bkg_max2 = 130
     
     mask_sig = (bin_edges[:-1] >= sig_min) & (bin_edges[:-1] <= sig_max)
-    #mask_bkg = (bin_edges[:-1] >= bkg_min) & (bin_edges[:-1] <= bkg_max)
     mask_bkg = ((bin_edges[:-1] >= bkg_min) & (bin_edges[:-1] <= bkg_max)) | ((bin_edges[:-1] >= bkg_min2) & (bin_edges[:-1] <= bkg_max2))
 
     bin_contents_sig = bin_contents[mask_sig]
@@ -269,13 +287,13 @@ def fit_gaussian_with_background(file_name):
 
     #Finding Parameters
     
-    sigma = 0
+    #sigma = 0
+    sigma = 1
 
-    for i in range(len(bin_centers)):
-        sigma += bin_centers[i]*bin_contents[i] / entry_num
+    #for i in range(len(bin_centers)):
+        #sigma += bin_centers[i]*bin_contents[i] / entry_num
 
-    sigma1 = sigma
-    sigma2 = sigma
+    #print('Sigma Guess:', sigma)
 
     #Background
     alpha = 55
@@ -290,13 +308,21 @@ def fit_gaussian_with_background(file_name):
     peak = bkg_max_val
 
     print('Background Mean:', mean_bkg)
-    print('Bacground Peak:', peak)
+    print('Background Peak:', peak)
 
-    p0_bkg = [peak, alpha, beta, gamma]
-    #p0_bkg = [mean_bkg, sigma1, bkg_max_val]
-
-    popt_bkg, pcov_bkg = curve_fit(bkg_func, bin_centers_bkg, bin_contents_bkg, p0=p0_bkg, maxfev=100000000)
+    #background function
+    if bkg_type == 1:
+        p0_bkg = [peak, alpha, beta, gamma]  
+        popt_bkg, pcov_bkg = curve_fit(bkg_func, bin_centers_bkg, bin_contents_bkg, p0=p0_bkg, maxfev=100000000)
+    
+    #exponential function
+    if bkg_type == 0:
+        popt_bkg, pcov_bkg = curve_fit(bkg_exp, bin_centers_bkg, bin_contents_bkg, p0=(1, 1e-6, 1), maxfev=100000000)
+    
+    #p0_bkg = [mean_bkg, sigma, bkg_max_val] #gaussian
     #popt_bkg, pcov_bkg = curve_fit(gaussian, bin_centers_bkg, bin_contents_bkg, p0=p0_bkg, maxfev=10000)
+
+    #print(len(popt_bkg))
 
     print("Background Parameters Set")
 
@@ -305,7 +331,11 @@ def fit_gaussian_with_background(file_name):
     mean_loc = np.where(bin_contents_sig == sig_max_val) #index
     mean = bin_centers_sig[mean_loc]
 
-    bkg_at_mean = bkg_func(mean, *popt_bkg)
+    if bkg_type == 1:
+        bkg_at_mean = bkg_func(mean, *popt_bkg)
+    if bkg_type == 0:
+        bkg_at_mean = bkg_exp(mean, *popt_bkg)
+
     #bkg_at_mean = gaussian(mean, *popt_bkg)
 
     mean = mean[0]
@@ -315,47 +345,49 @@ def fit_gaussian_with_background(file_name):
 
     amp = sig_max_val - bkg_at_mean
     amp = amp[0]
-
     #print(amp)
+    
+    #double gaussian w/ phi
+    phi = np.pi / 4
 
-    second_loc = mean_loc[0][0] - 1
-    diff = sig_max_val - bin_contents_sig[second_loc]
-
-    #print(diff)
-    '''
+    #CBEGaussShape
     alpha_sig = 2
     n = 2
     tailLeft = 2
-    '''
 
-    phi = np.pi / 4
+    #double gaussian
+    if gauss_type == 2:
+        p0_sig = [mean, sigma, sigma, amp] 
+        #p0_sig = [mean, sigma, sigma, phi] # w/ phi
+        bounds_sig = ([sig_min, -5, -5, 0], [sig_max, 5, 5, sig_max_val])
+        popt_sig, pcov_sig = curve_fit(double_gauss, bin_centers_sig, bin_contents_sig, p0=p0_sig, bounds=bounds_sig, maxfev=10000)
+        if override == 1:
+            popt_sig[3] = ( amp*np.sqrt(2*np.pi) - 1/popt_sig[2] ) / ( (1/popt_sig[1]) - (1/popt_sig[2]) )
 
-    p0_sig = [mean, sigma1, sigma2, amp]
-    #p0_sig = [mean, sigma1, sigma2, phi]
-    #p0_sig = [mean, sigma1, amp]
-    #p0_sig = [mean, sigma1, sigma2, alpha_sig, n, tailLeft]
 
-    popt_sig, pcov_sig = curve_fit(double_gauss, bin_centers_sig, bin_contents_sig, p0=p0_sig, maxfev=10000)
-    #popt_sig, pcov_sig = curve_fit(gaussian, bin_centers_sig, bin_contents_sig, p0=p0_sig, maxfev=10000)
-    #popt_sig, pcov_sig = curve_fit(CBEGauss, bin_centers_sig, bin_contents_sig, p0=p0_sig, maxfev=10000)
-
-    #Manual Override
-    #popt_sig[2] = amp #gauss
-    popt_sig[3] = ( amp*np.sqrt(2*np.pi) - 1/popt_sig[2] ) / ( (1/popt_sig[1]) - (1/popt_sig[2]) ) #double gauss
+    #single gaussian
+    if gauss_type == 1:
+        p0_sig = [mean, sigma, amp]
+        bounds_sig = ([sig_min, -5, 0], [sig_max, 5, sig_max_val])
+        popt_sig, pcov_sig = curve_fit(gaussian, bin_centers_sig, bin_contents_sig, p0=p0_sig, bounds=bounds_sig, maxfev=10000)
+        if override == 1:
+            popt_sig[2] = amp
+    
+    #p0_sig = [mean, sigma, sigma, alpha_sig, n, tailLeft] #CBEGaussShape
+    #popt_sig, pcov_sig = curve_fit(CBEGauss, bin_centers_sig, bin_contents_sig, p0=p0_sig, maxfev=10000) #CBEGaussShape
 
     print("Signal Parameters Set")
 
     #print('Signal Fit Parameters:', popt_sig)
     #print('Background Fit Parameters:', popt_bkg)
 
-    #Graphing Interval
-    interval = np.linspace(x_min, x_max, 10000)
-    
     ###############
 
     #Plotting
     print("Making Plots ...")
 
+    #Graphing Interval
+    interval = np.linspace(x_min, x_max, 10000)
 
     fig = plt.figure(figsize=(10, 10))
     plt.rcParams.update({'font.size': 22})
@@ -369,81 +401,105 @@ def fit_gaussian_with_background(file_name):
     plt.hist(bin_edges[:-1], bins=bin_edges, weights=bin_contents, histtype = 'step', color='tab:blue') #Make Histogram
     
     #Plot Signal
-    plt.plot(interval, double_gauss(interval, *popt_sig), label='Signal', color='red') 
-    #plt.plot(interval, gaussian(interval, *popt_sig), label='Signal', color='red') 
-    #plt.plot(interval, CBEGauss(interval, *popt_sig), label='Signal', color='red')
+    if gauss_type == 2:
+        plt.plot(interval, double_gauss(interval, *popt_sig), label='Signal', color='red')
+    if gauss_type == 1:
+        plt.plot(interval, gaussian(interval, *popt_sig), label='Signal', color='red')
+    
+    #plt.plot(interval, CBEGauss(interval, *popt_sig), label='Signal', color='red') #CBEGaussShape
     
     #Plot Background
-    plt.plot(interval, bkg_func(interval, *popt_bkg), label='Background', color='green') 
+    if bkg_type == 1:
+        plt.plot(interval, bkg_func(interval, *popt_bkg), label='Background', color='green') 
+    if bkg_type == 0:
+        plt.plot(interval, bkg_exp(interval, *popt_bkg), label='Background', color='green')
+    
     #plt.plot(interval, gaussian(interval, *popt_bkg), label='Background', color='green') 
-
-    #plt.plot(interval, bkg_func(interval, *popt_bkg_adjusted), label='Background Adjusted', color='orange', linestyle='--')
 
     #Plot Combined
     
-    combined_fit = double_gauss(interval, *popt_sig) + bkg_func(interval, *popt_bkg)
-    #combined_fit = gaussian(interval, *popt_sig) + bkg_func(interval, *popt_bkg)
-    #combined_fit = gaussian(interval, *popt_sig) + gaussian(interval, *popt_bkg)
-    #combined_fit = double_gauss(interval, *popt_sig) + gaussian(interval, *popt_bkg)
-    #combined_fit = CBEGauss(interval, *popt_sig) + bkg_func(interval, *popt_bkg)
+    if gauss_type == 2 and bkg_type == 1:
+        combined_fit = double_gauss(interval, *popt_sig) + bkg_func(interval, *popt_bkg) 
+        combined_fit_2 = double_gauss(bin_centers, *popt_sig) + bkg_func(bin_centers, *popt_bkg)
+    if gauss_type == 1 and bkg_type == 1:
+        combined_fit = gaussian(interval, *popt_sig) + bkg_func(interval, *popt_bkg)
+        combined_fit_2 = gaussian(bin_centers, *popt_sig) + bkg_func(bin_centers, *popt_bkg)
+    if gauss_type == 2 and bkg_type == 0:
+        combined_fit = double_gauss(interval, *popt_sig) + bkg_exp(interval, *popt_bkg) 
+        combined_fit_2 = double_gauss(bin_centers, *popt_sig) + bkg_exp(bin_centers, *popt_bkg)
+    if gauss_type == 1 and bkg_type == 0:
+        combined_fit = gaussian(interval, *popt_sig) + bkg_exp(interval, *popt_bkg)
+        combined_fit_2 = gaussian(bin_centers, *popt_sig) + bkg_exp(bin_centers, *popt_bkg)
+
+    #combined_fit = gaussian(interval, *popt_sig) + gaussian(interval, *popt_bkg) #gaussian & gaussian
+    #combined_fit = double_gauss(interval, *popt_sig) + gaussian(interval, *popt_bkg) #double gaussian & gaussian
+    #combined_fit = CBEGauss(interval, *popt_sig) + bkg_func(interval, *popt_bkg) #CBEGaussShape & background function
     
     plt.plot(interval, combined_fit, label='Combined Fit', color='blue') 
 
-    intg_sig, _ = quad(double_gauss, x_min, x_max, args = tuple(popt_sig))
-    #intg_sig, _ = quad(gaussian, x_min, x_max, args = tuple(popt_sig))
+    print("Checking Stats ...")
 
-    intg_bkg, _ = quad(bkg_func, x_min, x_max, args = tuple(popt_bkg))
+    if gauss_type == 2:
+        intg_sig, _ = quad(double_gauss, x_min, x_max, args = tuple(popt_sig))
+        intg_sig_2, _ = quad(double_gauss, sig_min, sig_max, args = tuple(popt_sig))
+    if gauss_type == 1:
+        intg_sig, _ = quad(gaussian, x_min, x_max, args = tuple(popt_sig))
+        intg_sig_2, _ = quad(gaussian, sig_min, sig_max, args = tuple(popt_sig))
+
+    if bkg_type == 1:
+        intg_bkg, _ = quad(bkg_func, x_min, x_max, args = tuple(popt_bkg))
+        intg_bkg_2, _ = quad(bkg_func, sig_min, sig_max, args = tuple(popt_bkg))
+    if bkg_type == 0:
+        intg_bkg, _ = quad(bkg_exp, x_min, x_max, args = tuple(popt_bkg))
+        intg_bkg_2, _ = quad(bkg_exp, sig_min, sig_max, args = tuple(popt_bkg))
+    
     #intg_bkg, _ = quad(gaussian, x_min, x_max, args = tuple(popt_bkg))
-    #intg_combo = sum(combined_fit)
+    
     combo = intg_sig + intg_bkg
+    combo_2 = intg_sig_2 + intg_bkg_2
 
     print('Signal:', intg_sig)
+    print('Signal Sum:', sum(bin_contents_sig))
     print('Background:', intg_bkg)
+    #print('Background Sum:', sum(bin_contents_bkg))
     #print(combo)
 
     ratio = entry_num/combo
-    print(ratio)
+    print('Ratio of Actual Entries to Integral:', ratio)
 
     N_sig = intg_sig * ratio
     N_bkg = intg_bkg * ratio
 
-    print(N_sig)
+    print('N_sig:', N_sig)
+    print('N_bkg:', N_bkg)
 
     sig_err = np.sqrt(N_sig)
     bkg_err = np.sqrt(N_bkg)
 
+    if bkg_type == 1:
+        err_bkg = [pcov_bkg[0][0], pcov_bkg[1][1], pcov_bkg[2][2], pcov_bkg[3][3]] #Background Function
+    if bkg_type == 0:
+        err_bkg = [pcov_bkg[0][0], pcov_bkg[1][1], pcov_bkg[2][2]] #Background Function
+    
+    #err_bkg = [pcov_bkg[0][0], pcov_bkg[1][1], pcov_bkg[2][2]] #Gaussian
 
-    #least_squares_bkg = LeastSquares(bin_centers_bkg, bin_contents_bkg, bin_errors_bkg, bkg_func)
-    #m_bkg = Minuit(least_squares_bkg, a=popt_bkg)
-    #m_bkg.migrad() # finds minimum of least_squares function
-    #m_bkg.hesse() # computes errors
-
-    #least_squares_sig = LeastSquares(bin_centers_sig, bin_contents_sig, bin_errors_sig, double_gauss)
-    #m_sig = Minuit(least_squares_sig, a=popt_sig)
-    #m_sig.migrad() # finds minimum of least_squares function
-    #m_sig.hesse() # computes errors
-
-    if len(popt_bkg) == 3:
-        err_bkg = [pcov_bkg[0][0], pcov_bkg[1][1], pcov_bkg[2][2]]
-
-    if len(popt_bkg) == 4:
-        err_bkg = [pcov_bkg[0][0], pcov_bkg[1][1], pcov_bkg[2][2], pcov_bkg[3][3]]
-
-    if len(popt_sig) == 3:
-        err_sig = [pcov_sig[0][0], pcov_sig[1][1], pcov_sig[2][2]]
-
-    if len(popt_sig) == 4:
+    if gauss_type == 2:
         err_sig = [pcov_sig[0][0], pcov_sig[1][1], pcov_sig[2][2], pcov_sig[3][3]]
-
+    if gauss_type == 1:
+        err_sig = [pcov_sig[0][0], pcov_sig[1][1], pcov_sig[2][2]]
 
     err_bkg = np.sqrt(err_bkg)
     err_sig = np.sqrt(err_sig)
+
+    chi2 = chisquare(bin_contents, combined_fit_2)
     
     display1 = f'N_sig{passfail} = {int(N_sig)} $\pm$ {int(sig_err)}'
     display2 = f'N_bkg{passfail} = {int(N_bkg)} $\pm$ {int(bkg_err)}'
+    display3 = f'$\chi^2$ / $n_\mathrm{{dof}}$ = {int(chi2[0])} / {len(bin_contents) - 1}'
     
     plt.plot([], [], " ", label=display1)
     plt.plot([], [], " ", label=display2)
+    plt.plot([], [], " ", label=display3)
     #plt.annotate(f'N_sig{passfail} = {int(N_sig)} $\pm$ {int(sig_err)}', xy=(x_max - 30, 3*sig_max_val/4), xytext=(10,10), textcoords='offset points')
     #plt.annotate(f'N_bkg{passfail} = {int(N_bkg)} $\pm$ {int(bkg_err)}', xy=(x_max - 30, 5*sig_max_val/8), xytext=(10,10), textcoords='offset points')
 
@@ -464,45 +520,72 @@ def fit_gaussian_with_background(file_name):
     with open(f'{plot_dir}/results.txt', 'w') as w:
 
         print('Background Parameters', file=w)
+        print('---------------------', file=w)
         print(f'({bkg_min}, {bkg_max}) U ({bkg_min2}, {bkg_max2})', file=w)
         
-        if len(popt_bkg) == 3:
-            print(f'Mean: {popt_bkg[0]} +/- {err_bkg[0]}', file=w)
-            print(f'Sigma: {popt_bkg[1]} +/- {err_bkg[1]}', file=w)
-            print(f'Amplitude: {popt_bkg[2]} +/- {err_bkg[2]}', file=w)
-            print('Covariance:', file=w)
-            print(pcov_bkg, file=w)
-
-        if len(popt_bkg) == 4:
+        if bkg_type == 1:
+            #Background Function
             print(f'Peak: {popt_bkg[0]} +/- {err_bkg[0]}', file=w)
             print(f'Alpha: {popt_bkg[1]} +/- {err_bkg[1]}', file=w)
             print(f'Beta: {popt_bkg[2]} +/- {err_bkg[2]}', file=w)
             print(f'Gamma: {popt_bkg[3]} +/- {err_bkg[3]}', file=w)
-            print('Covariance:', file=w)
-            print(pcov_bkg, file=w)
+            #print('Covariance:', file=w)
+            #print(pcov_bkg, file=w)
+        if bkg_type == 0:
+            #Exponential
+            print(f'a: {popt_bkg[0]} +/- {err_bkg[0]}', file=w)
+            print(f'b: {popt_bkg[1]} +/- {err_bkg[1]}', file=w)
+            print(f'c: {popt_bkg[2]} +/- {err_bkg[2]}', file=w)
+            #print('Covariance:', file=w)
+            #print(pcov_bkg, file=w)
+
+        '''
+        #Gaussian
+        print(f'Mean: {popt_bkg[0]} +/- {err_bkg[0]}', file=w)
+        print(f'Sigma: {popt_bkg[1]} +/- {err_bkg[1]}', file=w)
+        print(f'Amplitude: {popt_bkg[2]} +/- {err_bkg[2]}', file=w)
+        print('Covariance:', file=w)
+        print(pcov_bkg, file=w)
+        '''
         
         print(file=w)
         
         print('Signal Parameters', file=w)
+        print('---------------------', file=w)
         print(f'({sig_min}, {sig_max})', file=w)
         
-        if len(popt_sig) == 3:
-            print(f'Mean: {popt_sig[0]} +/- {err_sig[0]}', file=w)
-            print(f'Sigma: {popt_sig[1]} +/- {err_sig[1]}', file=w)
-            print(f'Amplitude: {popt_sig[2]} +/- {err_sig[2]}', file=w)
-            print('Covariance:', file=w)
-            print(pcov_sig, file=w)
-
-        if len(popt_sig) == 4:
+        if gauss_type == 2:
+            #Double Gaussian
             print(f'Mean: {popt_sig[0]} +/- {err_sig[0]}', file=w)
             print(f'Sigma 1: {popt_sig[1]} +/- {err_sig[1]}', file=w)
             print(f'Sigma 2: {popt_sig[2]} +/- {err_sig[2]}', file=w)
             print(f'Alpha: {popt_sig[3]} +/- {err_sig[3]}', file=w)
-            print('Covariance:', file=w)
-            print(pcov_sig, file=w)
+            #print('Covariance:', file=w)
+            #print(pcov_sig, file=w)
+
+        if gauss_type == 1:
+            #Single Gaussian
+            print(f'Mean: {popt_sig[0]} +/- {err_sig[0]}', file=w)
+            print(f'Sigma: {popt_sig[1]} +/- {err_sig[1]}', file=w)
+            print(f'Amplitude: {popt_sig[2]} +/- {err_sig[2]}', file=w)
+            #print('Covariance:', file=w)
+            #print(pcov_sig, file=w)
         
         print(file=w)
         
+        print('Integrals & Sums', file=w)
+        print('---------------------', file=w)
+        print('Signal:', intg_sig, file=w)
+        print('Background:', intg_bkg, file=w)
+        print('Full Integral:', combo, file=w)
+        print(file=w)
+        print('Sum of Signal Bins:', sum(bin_contents_sig), file=w)
+        print('Integral of Combined Fit on Signal Bins:', combo_2, file=w)
+        print(file=w)
+
+        print('Ratio of Actual Entries to Integral:', ratio, file=w)
+        print(file=w)
+
         print(f'N_sig: {N_sig} +/- {sig_err}', file=w)
         print(f'N_bkg: {N_bkg} +/- {bkg_err}', file=w)
         print(f'Total: {N_sig + N_bkg}', file=w)
