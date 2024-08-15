@@ -82,4 +82,4 @@ If you want to edit the directory it puts the output in, that is located in line
 
 For fine tuning the fit, you may need to edit the bounds on which you fit each function. You can do this on line 237.
 
-
+Additionally, there are multiple fitting functions (single gaussian for signal and the background function for background work best I think). You can switch between them by editing the numbers around line 179. There is also a "manual override" that basically just helps the fit get the right amplitude for the signal.
