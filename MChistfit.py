@@ -180,7 +180,7 @@ def fit_gaussian_with_background(file_name):
     gauss_type = 1
     
     #Background Function (1) or Exponential (0)
-    bkg_type = 0
+    bkg_type = 1
 
     #Manual Override
     override = 1
@@ -253,15 +253,16 @@ def fit_gaussian_with_background(file_name):
     
     print("Setting Parameters ...")
 
-    #bounds for fitting
-    sig_min = 70
-    sig_max = 130
+    # bounds for fitting
+    # determines which bins are used by the fit
+    sig_min = 80
+    sig_max = 100
     
     bkg_min = 50
-    bkg_max = 63
+    bkg_max = 80
 
-    bkg_min2 = 105
-    bkg_max2 = 115
+    bkg_min2 = 100
+    bkg_max2 = 120
     
     mask_sig = (bin_edges[:-1] >= sig_min) & (bin_edges[:-1] <= sig_max)
     #mask_bkg = (bin_edges[:-1] >= bkg_min) & (bin_edges[:-1] <= bkg_max)
