@@ -180,7 +180,7 @@ def fit_gaussian_with_background(file_name):
     gauss_type = 1
     
     #Background Function (1) or Exponential (0)
-    bkg_type = 1
+    bkg_type = 0
 
     #Manual Override
     override = 1
@@ -254,16 +254,17 @@ def fit_gaussian_with_background(file_name):
     print("Setting Parameters ...")
 
     #bounds for fitting
-    sig_min = 80
-    sig_max = 95
+    sig_min = 70
+    sig_max = 130
     
     bkg_min = 50
-    bkg_max = 78
+    bkg_max = 63
 
-    bkg_min2 = 115
-    bkg_max2 = 130
+    bkg_min2 = 105
+    bkg_max2 = 115
     
     mask_sig = (bin_edges[:-1] >= sig_min) & (bin_edges[:-1] <= sig_max)
+    #mask_bkg = (bin_edges[:-1] >= bkg_min) & (bin_edges[:-1] <= bkg_max)
     mask_bkg = ((bin_edges[:-1] >= bkg_min) & (bin_edges[:-1] <= bkg_max)) | ((bin_edges[:-1] >= bkg_min2) & (bin_edges[:-1] <= bkg_max2))
 
     bin_contents_sig = bin_contents[mask_sig]
@@ -335,6 +336,8 @@ def fit_gaussian_with_background(file_name):
         bkg_at_mean = bkg_func(mean, *popt_bkg)
     if bkg_type == 0:
         bkg_at_mean = bkg_exp(mean, *popt_bkg)
+    if bkg_at_mean > sig_max_val:
+        bkg_at_mean = 0
 
     #bkg_at_mean = gaussian(mean, *popt_bkg)
 
@@ -344,7 +347,7 @@ def fit_gaussian_with_background(file_name):
     #print(bkg_at_mean)
 
     amp = sig_max_val - bkg_at_mean
-    amp = amp[0]
+    #amp = amp[0]
     #print(amp)
     
     #double gaussian w/ phi
