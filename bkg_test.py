@@ -70,9 +70,9 @@ def bkg_func(x, *params):
 
 
 peak = 140
-alpha = 60
+alpha = 50
 beta = 0.07
-gamma = 0.001
+gamma = 0.1
 
 p0 = (peak, alpha, beta, gamma)
 

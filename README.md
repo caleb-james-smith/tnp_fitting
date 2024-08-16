@@ -15,9 +15,7 @@ In order for the these files to run on CMS el9 you need to run them in an sl7 co
 This the command to set up the sl7 container:
 
 ```
-alias use_sl7='cmssw-el7 -p --bind `readlink $HOME` --bind `readlink
--f ${HOME}/nobackup/` --bind /uscms_data --bind /cvmfs --bind
-/uscmst1b_scratch -- /bin/bash -l' 
+alias use_sl7='cmssw-el7 -p --bind `readlink $HOME` --bind `readlink -f ${HOME}/nobackup/` --bind /uscms_data --bind /cvmfs --bind /uscmst1b_scratch -- /bin/bash -l' 
 ```
 
 This will make it so the command `use_sl7` puts you in the container.
@@ -35,11 +33,9 @@ the comments of `run.sh`. The .C files are functionally used as .txt files.
 Here are two examples, one running on Data and one on Monte Carlo:
 
 ```
-./run.sh etc/config/settings_ele_PromptReco2023CD.py
-passingPreselectionAndLoose 01
+./run.sh etc/config/settings_ele_PromptReco2023CD.py passingPreselectionAndLoose 01
 
-./run.sh etc/config/settings_ele_PromptReco2023CD.py
-passingPreselectionAndLoose 01mc -m
+./run.sh etc/config/settings_ele_PromptReco2023CD.py passingPreselectionAndLoose 01mc -m
 ```
  
 The bins you want to use can be editing around line 199 in `settings_ele_PromptReco2023CD.py`. Additionally the output directory can be edited on line 46.
