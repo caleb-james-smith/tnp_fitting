@@ -40,10 +40,12 @@ flags = {
     'passingMVA122XwpHZZisoV1'      : '(passingMVA122XwpHZZisoV1 == 1)'
 }
 
+# OUTPUT DIRECTORY
 #baseOutDir = '/eos/user/b/bjoshi/www/EGM/TnP/PromptReco_official/tnpEleID_PromptReco2022FG/'
 #baseOutDir = '/uscms/home/caleb/nobackup/KU_SUSY_Run3/CMS_EGamma/tnpAnalysis/tnpEleID_PromptReco2023CD'
 #baseOutDir = '/uscms/home/gkennedy/nobackup/ScientificLinux7/CMSSW_11_2_0/src/egm_2/plots/fit_tests'
-baseOutDir = '/uscms/home/gkennedy/nobackup/ScientificLinux7/CMSSW_11_2_0/src/egm_2/test/testfit_' #OUTPUT DIRECTORY
+#baseOutDir = '/uscms/home/gkennedy/nobackup/ScientificLinux7/CMSSW_11_2_0/src/egm_2/test/testfit_'
+baseOutDir = '/home/caleb/ScientificLinux7/CMS_EGamma/CMSSW_11_2_0/src/tnp_fitting/test_fit_'
 
 #############################################################
 ########## samples definition  - preparing the samples
