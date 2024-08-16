@@ -242,7 +242,7 @@ def fit_gaussian_with_background(file_name):
     else:
         print("# of Bins do not match")
         print(num_bins, len(bin_contents))
-
+    
     bin_edges = np.linspace(x_min, x_max, num_bins + 1)
 
     bin_contents = np.array(bin_contents)

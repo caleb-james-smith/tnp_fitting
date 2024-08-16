@@ -7,7 +7,6 @@ The main fitting file is `MChistfit.py`, it fits the histograms given by a .C fi
 
 These particular .C files were hand pulled from the files created running `tnpEGM_fitter.py` over the .root file `DY_1j_madgraph_PromptReco2022FG_tnpEleID.pu.puTree.root`. You can find both of these in the `tnpEGM_fitting` directory.
 
-I may need to edit the files for that a bit to get them to work right again.
 
 ## Setup
 
@@ -28,7 +27,9 @@ After which you need to run `cmsenv` set up the root environment.
 
 ## Creating .C Files
 
-If you need to create the .C files you want to fit on, you can do so by running `tnpEGMfitter.py`. The instructions on how to do so are in the comments of `run.sh`.
+If you need to create the .C files you want to fit on, you can do so
+by running `tnpEGMfitter.py`. The instructions on how to do so are in
+the comments of `run.sh`. The .C files are functionally used as .txt files.
 
 
 Here are two examples, one running on Data and one on Monte Carlo:
@@ -45,7 +46,7 @@ The bins you want to use can be editing around line 199 in `settings_ele_PromptR
 
 Currently, this will output a fitting plot (alongside two extras that are useless). It'll be the one with "bin00" at the beginning.
 
-It is supposed to give you a file called `datareadout.txt`, but that is currently not working and I am trying to fix it.
+It is supposed to give you a file called `datareadout.txt`, but that is currently not working. This file isn't actually necessary as you can calculate all the values it would give you using the numbers on the bin00 plot.
 
 It will also output some .root files. The one you want to look at in the TBrowser is `data_Run2023C_passingPreselectionAndLoose.root`. Enter the root environment and then do the following.
 

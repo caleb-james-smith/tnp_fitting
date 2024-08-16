@@ -41,17 +41,13 @@ def bkg_func(x, *params):
 
             erfc_results[i] = 1 - (2 / np.sqrt(np.pi)) * integral
             u = (x[i] - peak) * gamma
-
-            u_results[i] = 10**20
             
-            '''
             if u < -70:
                 u_results[i] = 10**20
             elif u > 70:
                 u_results[i] = 0
             else:
                 u_results[i] = np.exp(-u)
-            '''
     
         return erfc_results*u_results
 
@@ -62,16 +58,13 @@ def bkg_func(x, *params):
         erfc = 1 - (2 / np.sqrt(np.pi)) * integral
         u0 = (x - peak) * gamma
 
-        u = 10**20
         
-        '''
         if u0 < -70:
             u = 10**20
         elif u0 > 70:
             u = 0
         else:
             u = np.exp(-u0)
-        '''
         
         return erfc*u
 
@@ -79,7 +72,7 @@ def bkg_func(x, *params):
 peak = 140
 alpha = 60
 beta = 0.07
-gamma = 0.1
+gamma = 0.001
 
 p0 = (peak, alpha, beta, gamma)
 
@@ -114,7 +107,7 @@ for i in range(len(test_vals)):
 
     y_p = truncate(y, 3)
     
-    #plt.annotate(f'({x}, {y_p})', xy=(x - 10,y), xytext=(10,10), textcoords='offset points')
+    plt.annotate(f'({x}, {y_p})', xy=(x - 10,y), xytext=(10,10), textcoords='offset points')
 
     print(f'({x}, {y_p})')
     print(f'u0 = {u0_list[i]}')
