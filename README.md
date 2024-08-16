@@ -38,6 +38,8 @@ Here are two examples, one running on Data and one on Monte Carlo:
 ./run.sh etc/config/settings_ele_PromptReco2023CD.py passingPreselectionAndLoose 01mc -m
 ```
  
+The code is by default set to output things in my directory, you'll want to change it to yours. This can be done by altering `baseOutDir` on line 46 in `settings_ele_PromptReco2023CD.py`.
+ 
 The bins you want to use can be editing around line 199 in `settings_ele_PromptReco2023CD.py`. Additionally the output directory can be edited on line 46.
 
 Currently, this will output a fitting plot (alongside two extras that are useless). It'll be the one with "bin00" at the beginning.
